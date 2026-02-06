@@ -111,6 +111,25 @@ export function initializeOrderBookFromSnapshot(message: OrderBookMessage, set: 
   console.log('Order book snapshot received')
 }
 
+export function reconnectTopic(ws: WebSocket | null, topic: string) {
+  // Re-subscribe to get a fresh snapshot
+  const resubscribeMessage = {
+    op: 'unsubscribe',
+    args: [topic],
+  }
+  ws?.send(JSON.stringify(resubscribeMessage))
+
+  setTimeout(() => {
+    const subscribeMessage = {
+      op: 'subscribe',
+      args: [topic],
+    }
+    ws?.send(JSON.stringify(subscribeMessage))
+    console.log('Re-subscription sent after sequence mismatch')
+  }, 100)
+  return
+}
+
 /**
  * Apply incremental update from delta message
  */
@@ -126,22 +145,8 @@ export function applyIncrementalUpdate(
     console.warn(
       `Sequence number mismatch! Expected ${currentOrderBook.lastSeqNum}, got ${message.prevSeqNum}. Re-subscribing...`
     )
-    // Re-subscribe to get a fresh snapshot
-    const resubscribeMessage = {
-      op: 'unsubscribe',
-      args: [topic],
-    }
-    ws?.send(JSON.stringify(resubscribeMessage))
 
-    setTimeout(() => {
-      const subscribeMessage = {
-        op: 'subscribe',
-        args: [topic],
-      }
-      ws?.send(JSON.stringify(subscribeMessage))
-      console.log('Re-subscription sent after sequence mismatch')
-    }, 100)
-    return
+    return reconnectTopic(ws, topic)
   }
 
   // Apply delta update
@@ -175,12 +180,10 @@ function processUpdateAction(
 
   switch (message.type) {
     case 'snapshot':
-      initializeOrderBookFromSnapshot(message, set)
-      break
+      return initializeOrderBookFromSnapshot(message, set)
 
     case 'delta':
-      applyIncrementalUpdate(message, currentOrderBook, topic, ws, set)
-      break
+      return applyIncrementalUpdate(message, currentOrderBook, topic, ws, set)
 
     default:
       console.warn('Unknown message type:', message)

@@ -1,6 +1,6 @@
 import { atom } from 'jotai'
 import { connectionStatusAtom, errorAtom, orderBookAtom } from './atoms'
-import { WS_URL, UPDATE_TOPIC } from './constants'
+import { WS_URL } from './constants'
 import { wsMessageSchema } from './schemas'
 import { resetDataTimeout, clearAllTimers, processSubscriptionEvent, processDataMessage } from './helpers'
 
@@ -12,10 +12,17 @@ let ws: WebSocket | null = null
 let reconnectTimer: number | null = null
 let dataTimeoutTimer: number | null = null
 
-// Action atom to connect WebSocket
-export const connectWSAtom = atom(null, (get, set) => {
+// Subscriptions set (tracks active subscriptions)
+let activeSubscriptions = new Set<string>()
+
+// Base atom for tracking subscriptions
+export const subscriptionsAtom = atom(new Set<string>())
+
+/**
+ * Connect WebSocket if not already connected
+ */
+function connectWebSocket(get: any, set: any) {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
-    console.log('WebSocket already connected or connecting')
     return
   }
 
@@ -25,7 +32,6 @@ export const connectWSAtom = atom(null, (get, set) => {
   try {
     ws = new WebSocket(WS_URL)
 
-    // Create refs object for helper functions
     const refs = {
       ws,
       reconnectTimer,
@@ -38,40 +44,38 @@ export const connectWSAtom = atom(null, (get, set) => {
       set(connectionStatusAtom, 'connected')
       set(errorAtom, null)
 
-      // Subscribe to order book updates
-      const subscribeMessage = {
-        op: 'subscribe',
-        args: [UPDATE_TOPIC],
+      // Subscribe to all active subscriptions
+      const subs = get(subscriptionsAtom)
+      for (const topic of subs) {
+        const subscribeMessage = {
+          op: 'subscribe',
+          args: [topic],
+        }
+        ws?.send(JSON.stringify(subscribeMessage))
+        console.log('Subscription sent:', subscribeMessage)
       }
-      ws?.send(JSON.stringify(subscribeMessage))
-      console.log('Subscription sent:', subscribeMessage)
 
-      // Start data timeout timer after subscription
-      resetDataTimeout(refs, set)
+      // Start data timeout timer
+      if (subs.size > 0) {
+        resetDataTimeout(refs, set)
+      }
     }
 
     ws.onmessage = (event) => {
-      // Reset timeout on any message received
       resetDataTimeout(refs, set)
 
       try {
         const rawData = JSON.parse(event.data)
-
-        // Validate message with zod
         const validationResult = wsMessageSchema.safeParse(rawData)
 
         if (!validationResult.success) {
-          console.log('???????????', rawData)
           console.warn('Message validation failed:', validationResult.error.issues)
           return
         }
 
         const data = validationResult.data
 
-        // Handle subscription event
         if ('event' in data && data.event === 'subscribe') return processSubscriptionEvent(data)
-
-        // Handle data message
         if ('topic' in data && 'data' in data) return processDataMessage(data, refs.ws, get, set)
 
         console.warn('Unknown message format:', data)
@@ -91,28 +95,32 @@ export const connectWSAtom = atom(null, (get, set) => {
       console.log('WebSocket disconnected')
       set(connectionStatusAtom, 'disconnected')
 
-      // Clear data timeout timer
       if (dataTimeoutTimer) {
         clearTimeout(dataTimeoutTimer)
         dataTimeoutTimer = null
       }
 
-      // Auto-reconnect after 3 seconds
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      reconnectTimer = setTimeout(() => {
-        console.log('Attempting to reconnect...')
-        set(connectWSAtom)
-      }, 3000)
+      // Reconnect if there are active subscriptions
+      const subs = get(subscriptionsAtom)
+      if (subs.size > 0) {
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        reconnectTimer = setTimeout(() => {
+          console.log('Attempting to reconnect...')
+          connectWebSocket(get, set)
+        }, 3000)
+      }
     }
   } catch (error) {
     console.error('Failed to create WebSocket:', error)
     set(connectionStatusAtom, 'error')
     set(errorAtom, 'Failed to create WebSocket connection')
   }
-})
+}
 
-// Action atom to disconnect WebSocket
-export const disconnectWSAtom = atom(null, (_get, set) => {
+/**
+ * Disconnect WebSocket
+ */
+function disconnectWebSocket(set: any) {
   const refs = {
     ws,
     reconnectTimer,
@@ -130,4 +138,77 @@ export const disconnectWSAtom = atom(null, (_get, set) => {
   set(connectionStatusAtom, 'disconnected')
   set(orderBookAtom, null)
   set(errorAtom, null)
+}
+
+// Action atom to subscribe to a topic
+export const subscribeAtom = atom(null, (get, set, topic: string) => {
+  const subs = get(subscriptionsAtom)
+
+  if (subs.has(topic)) {
+    console.log(`Already subscribed to ${topic}`)
+    return
+  }
+
+  const newSubs = new Set(subs)
+
+  newSubs.add(topic)
+  activeSubscriptions.add(topic)
+  set(subscriptionsAtom, newSubs)
+
+  console.log(`Subscribing to ${topic}`)
+
+  // If WebSocket is connected, send subscription immediately
+  if (ws?.readyState === WebSocket.OPEN) {
+    const subscribeMessage = {
+      op: 'subscribe',
+      args: [topic],
+    }
+    ws.send(JSON.stringify(subscribeMessage))
+    console.log('Subscription sent:', subscribeMessage)
+  } else {
+    // Connect WebSocket if not already connected
+    connectWebSocket(get, set)
+  }
+})
+
+// Action atom to unsubscribe from a topic
+export const unsubscribeAtom = atom(null, (get, set, topic: string) => {
+  const subs = get(subscriptionsAtom)
+  const newSubs = new Set(subs)
+
+  if (!newSubs.has(topic)) {
+    console.log(`Not subscribed to ${topic}`)
+    return
+  }
+
+  newSubs.delete(topic)
+  activeSubscriptions.delete(topic)
+  set(subscriptionsAtom, newSubs)
+
+  console.log(`Unsubscribing from ${topic}`)
+
+  // Send unsubscribe message if WebSocket is connected
+  if (ws?.readyState === WebSocket.OPEN) {
+    const unsubscribeMessage = {
+      op: 'unsubscribe',
+      args: [topic],
+    }
+    ws.send(JSON.stringify(unsubscribeMessage))
+    console.log('Unsubscription sent:', unsubscribeMessage)
+  }
+
+  // Disconnect if no more active subscriptions
+  if (newSubs.size === 0) {
+    console.log('No more active subscriptions, disconnecting WebSocket')
+    disconnectWebSocket(set)
+  }
+})
+
+// Legacy atoms for backwards compatibility
+export const connectWSAtom = atom(null, (get, set) => {
+  connectWebSocket(get, set)
+})
+
+export const disconnectWSAtom = atom(null, (_get, set) => {
+  disconnectWebSocket(set)
 })
