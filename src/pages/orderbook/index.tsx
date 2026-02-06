@@ -3,6 +3,7 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { subscribeAtom, unsubscribeAtom } from '@/ws-manager/orderbook'
 import { UPDATE_BTCPFC } from '@/constants'
 import { splitBidsAtom, splitAsksAtom } from '@/atoms'
+import LastPrice from './LastPrice'
 import OrderRow from './OrderRow'
 
 export default function OrderBookPage() {
@@ -33,7 +34,7 @@ export default function OrderBookPage() {
           ))}
         </div>
 
-        <div className="my-4 border-t border-[#1e2329]" />
+        <LastPrice />
 
         <div>
           {bidsAtoms.map((bidsAtom) => (

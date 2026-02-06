@@ -1,16 +1,13 @@
+import type { Setter, Getter } from 'jotai'
 import type { OrderBookMessage, OrderBook } from '@/atoms/types'
 import { orderBookAtom, prevOrderBookAtom } from '@/atoms'
 import { connectionStatusAtom } from './atoms'
 import { DATA_TIMEOUT_MS } from './constants'
 import { parseTopic, type TopicAction } from './schemas'
+import type { WSRefs as BaseWSRefs } from '../shared/base'
 
-// WebSocket and timer instance references
-export interface WSRefs {
-  ws: WebSocket | null
-  reconnectTimer: number | null
-  dataTimeoutTimer: number | null
-  connectWSAtom: any
-}
+// WebSocket and timer instance references (extends base WSRefs)
+export interface WSRefs extends BaseWSRefs {}
 
 /**
  * Apply order book updates
@@ -51,7 +48,7 @@ export function applyOrderBookUpdate(currentBook: OrderBook, message: OrderBookM
  * Reset data timeout timer
  * Triggers reconnection if no data is received within the specified time
  */
-export function resetDataTimeout(refs: WSRefs, set: any) {
+export function resetDataTimeout(refs: WSRefs, set: Setter) {
   // Clear existing timer
   if (refs.dataTimeoutTimer) {
     clearTimeout(refs.dataTimeoutTimer)
@@ -100,7 +97,7 @@ export function clearAllTimers(refs: WSRefs) {
 /**
  * Initialize order book from snapshot message
  */
-export function initializeOrderBookFromSnapshot(message: OrderBookMessage, set: any) {
+export function initializeOrderBookFromSnapshot(message: OrderBookMessage, set: Setter) {
   const newBook: OrderBook = {
     symbol: message.symbol,
     bids: new Map(message.bids), // Already in [price, size] format
@@ -140,7 +137,7 @@ export function applyIncrementalUpdate(
   currentOrderBook: OrderBook | null,
   topic: string,
   ws: WebSocket | null,
-  set: any
+  set: Setter
 ) {
   // Check sequence number continuity
   if (currentOrderBook && message.prevSeqNum !== currentOrderBook.lastSeqNum) {
@@ -174,8 +171,8 @@ function processUpdateAction(
   message: OrderBookMessage,
   topic: string,
   ws: WebSocket | null,
-  get: any,
-  set: any
+  get: Getter,
+  set: Setter
 ) {
   const currentOrderBook = get(orderBookAtom)
 
@@ -194,7 +191,7 @@ function processUpdateAction(
 /**
  * Process WebSocket data message based on topic action
  */
-export function processDataMessage(data: any, ws: WebSocket | null, get: any, set: any) {
+export function processDataMessage(data: any, ws: WebSocket | null, get: Getter, set: Setter) {
   // Parse and validate topic
   const parsed = parseTopic(data.topic)
   if (!parsed) {
