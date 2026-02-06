@@ -1,5 +1,5 @@
-import type { OrderBookMessage, OrderBook } from '../atoms/types'
-import { orderBookAtom } from '../atoms'
+import type { OrderBookMessage, OrderBook } from '@/atoms/types'
+import { orderBookAtom, prevOrderBookAtom } from '@/atoms'
 import { connectionStatusAtom } from './atoms'
 import { DATA_TIMEOUT_MS } from './constants'
 import { parseTopic, type TopicAction } from './schemas'
@@ -108,6 +108,7 @@ export function initializeOrderBookFromSnapshot(message: OrderBookMessage, set: 
     lastSeqNum: message.seqNum,
     timestamp: message.timestamp,
   }
+  set(prevOrderBookAtom, newBook) // Initialize prev order book
   set(orderBookAtom, newBook)
   console.log('Order book snapshot received')
 }
@@ -153,6 +154,7 @@ export function applyIncrementalUpdate(
   // Apply delta update
   if (currentOrderBook) {
     const updatedBook = applyOrderBookUpdate(currentOrderBook, message)
+    set(prevOrderBookAtom, currentOrderBook) // Save current order book as previous
     set(orderBookAtom, updatedBook)
   }
 }

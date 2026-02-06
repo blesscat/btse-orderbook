@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { splitBidsAtom, type OrderBookLevel } from '../../atoms'
+import { splitBidsAtom } from '@/atoms'
 import OrderRow from './OrderRow'
 
 export default function OrderBookPanel() {

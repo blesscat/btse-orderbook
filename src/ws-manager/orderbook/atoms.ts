@@ -1,5 +1,5 @@
 import { atom } from 'jotai'
-import { orderBookAtom, type OrderBook } from '../atoms'
+import { orderBookAtom, prevOrderBookAtom, type OrderBook } from '@/atoms'
 import { WS_URL } from './constants'
 import { wsMessageSchema } from './schemas'
 import { resetDataTimeout, clearAllTimers, processSubscriptionEvent, processDataMessage } from './helpers'
@@ -152,6 +152,7 @@ function disconnectWebSocket(set: any) {
 
   set(connectionStatusAtom, 'disconnected')
   set(orderBookAtom, null)
+  set(prevOrderBookAtom, null)
   set(errorAtom, null)
 }
 

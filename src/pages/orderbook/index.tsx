@@ -1,27 +1,37 @@
 import { useEffect } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
-import { subscribeAtom, unsubscribeAtom, connectionStatusAtom } from '../../ws-manager'
-import { UPDATE_BTCPFC } from '../../constants'
-import { splitBidsAtom } from '../../atoms'
-import { Header } from './Header'
+import { subscribeAtom, unsubscribeAtom } from '@/ws-manager/orderbook'
+import { UPDATE_BTCPFC } from '@/constants'
+import { splitBidsAtom, splitAsksAtom } from '@/atoms'
 import OrderRow from './OrderRow'
 
 export default function OrderBookPage() {
   const subscribe = useSetAtom(subscribeAtom)
   const unsubscribe = useSetAtom(unsubscribeAtom)
-  const status = useAtomValue(connectionStatusAtom)
   const bidsAtoms = useAtomValue(splitBidsAtom)
+  const asksAtoms = useAtomValue(splitAsksAtom)
 
   useEffect(() => {
     subscribe(UPDATE_BTCPFC)
-    // return () => unsubscribe(UPDATE_TOPIC)
+    return () => unsubscribe(UPDATE_BTCPFC)
   }, [subscribe, unsubscribe])
 
   return (
     <div className="min-h-screen">
-      <Header status={status} />
+      <div className="grid grid-cols-[1fr_1fr_2fr]">
+        <span> Price (USD) </span>
+        <span className="text-right"> Size </span>
+        <span className="text-right">Total </span>
+      </div>
+
       <div>
-        {bidsAtoms.splice(0, 8).map((bidsAtom) => (
+        {asksAtoms.map((asksAtom) => (
+          <OrderRow key={`${asksAtom}`} rowAtom={asksAtom} />
+        ))}
+      </div>
+
+      <div className="mt-[20px]">
+        {bidsAtoms.map((bidsAtom) => (
           <OrderRow key={`${bidsAtom}`} rowAtom={bidsAtom} />
         ))}
       </div>

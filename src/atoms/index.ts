@@ -7,25 +7,56 @@ export * from './types'
 // Base atom for the order book
 export const orderBookAtom = atom<OrderBook | null>(null)
 
+// Track previous order book to detect new orders
+export const prevOrderBookAtom = atom<OrderBook | null>(null)
+
 // Atoms for bids and asks as arrays (for splitAtom) - returns object format for UI
 export const bidsArrayAtom = atom<OrderBookLevel[]>((get) => {
   const orderBook = get(orderBookAtom)
+  const prevOrderBook = get(prevOrderBookAtom)
   if (!orderBook) return []
 
-  return Array.from(orderBook.bids.entries())
+  const bids = Array.from(orderBook.bids.entries())
     .map(([price, size]) => ({ price, size }))
-    .sort((a, b) => parseFloat(b.price) - parseFloat(a.price)) // Descending order by price
-    .slice(0, 50) // Top 50 levels
+    .sort((a, b) => Number(b.price) - Number(a.price)) // Descending order by price (high to low)
+    .slice(0, 8) // Top 8 levels
+
+  // Calculate cumulative total from highest price downwards
+  let cumulativeTotal = 0
+  return bids.map((bid) => {
+    cumulativeTotal += Number(bid.size)
+    const isNewOrder = !prevOrderBook?.bids.has(bid.price)
+    return {
+      price: bid.price,
+      size: bid.size,
+      total: cumulativeTotal.toString(),
+      isNewOrder: isNewOrder ?? false,
+    }
+  })
 })
 
 export const asksArrayAtom = atom<OrderBookLevel[]>((get) => {
   const orderBook = get(orderBookAtom)
+  const prevOrderBook = get(prevOrderBookAtom)
   if (!orderBook) return []
 
-  return Array.from(orderBook.asks.entries())
+  const asks = Array.from(orderBook.asks.entries())
     .map(([price, size]) => ({ price, size }))
-    .sort((a, b) => parseFloat(a.price) - parseFloat(b.price)) // Ascending order by price
-    .slice(0, 50) // Top 50 levels
+    .sort((a, b) => Number(b.price) - Number(a.price)) // Descending order by price (high to low)
+    .slice(0, 8) // Top 8 levels
+
+  // Calculate cumulative total from lowest price upwards
+  return asks.map((ask, index) => {
+    // Sum from current index to the end (lowest prices)
+    const cumulativeTotal = asks.slice(index).reduce((sum, a) => sum + Number(a.size), 0)
+    const isNewOrder = !prevOrderBook?.asks.has(ask.price)
+    return {
+      price: ask.price,
+      size: ask.size,
+      total: cumulativeTotal.toString(),
+      isNewOrder: isNewOrder ?? false,
+    }
+  })
 })
 
 // Split atoms for individual bid/ask levels
@@ -50,8 +81,8 @@ export const spreadAtom = atom<{ absolute: string; percentage: string } | null>(
 
   if (!bestBid || !bestAsk) return null
 
-  const bidPrice = parseFloat(bestBid.price)
-  const askPrice = parseFloat(bestAsk.price)
+  const bidPrice = Number(bestBid.price)
+  const askPrice = Number(bestAsk.price)
   const spread = askPrice - bidPrice
   const spreadPercent = (spread / bidPrice) * 100
 

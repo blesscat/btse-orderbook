@@ -1,5 +1,5 @@
 export const formatNumber = (num: string | number, fractionDigits?: number): string => {
-  const n = typeof num === 'string' ? parseFloat(num) : num
+  const n = Number(num)
 
   if (fractionDigits !== undefined) {
     return n.toLocaleString('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })
