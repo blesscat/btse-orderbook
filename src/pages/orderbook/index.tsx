@@ -17,17 +17,17 @@ export default function OrderBookPage() {
   }, [subscribe, unsubscribe])
 
   return (
-    <div className="min-h-screen bg-bg-primary p-6">
-      <h1 className="mb-6 font-mono text-3xl font-bold text-text-primary">Order Book</h1>
+    <div className="bg-bg-primary min-h-screen p-6">
+      <h1 className="text-text-primary mb-6 font-mono text-3xl font-bold">Order Book</h1>
 
       <div className="space-y-4">
-        <div className="grid grid-cols-[1fr_1fr_2fr] gap-4 px-4 py-2 text-sm text-text-secondary">
-          <span>Price (USD)</span>
+        <div className="text-text-secondary grid grid-cols-[1fr_1fr_1.5fr] text-sm">
+          <span className="text-nowrap">Price(USD)</span>
           <span className="text-right">Size</span>
           <span className="text-right">Total</span>
         </div>
 
-        <div className="space-y-1">
+        <div>
           {asksAtoms.map((asksAtom) => (
             <OrderRow key={`${asksAtom}`} rowAtom={asksAtom} type="ask" />
           ))}
@@ -35,7 +35,7 @@ export default function OrderBookPage() {
 
         <div className="my-4 border-t border-[#1e2329]" />
 
-        <div className="space-y-1">
+        <div>
           {bidsAtoms.map((bidsAtom) => (
             <OrderRow key={`${bidsAtom}`} rowAtom={bidsAtom} type="bid" />
           ))}
