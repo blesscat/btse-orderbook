@@ -5,6 +5,7 @@ export interface OrderBookLevel {
   total: string
   isNewOrder: boolean
   sizeChanged: 'increase' | 'decrease'
+  percentage: number // percentage of current total vs max total (0-100)
 }
 
 // Order book level from API (tuple format)

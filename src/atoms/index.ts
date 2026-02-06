@@ -23,7 +23,7 @@ export const bidsArrayAtom = atom<OrderBookLevel[]>((get) => {
 
   // Calculate cumulative total from highest price downwards
   let cumulativeTotal = 0
-  return bids.map((bid) => {
+  const levelsWithTotal = bids.map((bid) => {
     cumulativeTotal += Number(bid.size)
     const isNewOrder = !prevOrderBook?.bids.has(bid.price)
 
@@ -41,8 +41,17 @@ export const bidsArrayAtom = atom<OrderBookLevel[]>((get) => {
       total: cumulativeTotal.toString(),
       isNewOrder: isNewOrder ?? false,
       sizeChanged,
+      totalValue: cumulativeTotal,
     }
   })
+
+  // Calculate max total and add percentage
+  const maxTotal = levelsWithTotal.length > 0 ? levelsWithTotal[levelsWithTotal.length - 1].totalValue : 1
+
+  return levelsWithTotal.map(({ totalValue, ...level }) => ({
+    ...level,
+    percentage: maxTotal > 0 ? (totalValue / maxTotal) * 100 : 0,
+  }))
 })
 
 export const asksArrayAtom = atom<OrderBookLevel[]>((get) => {
@@ -56,7 +65,7 @@ export const asksArrayAtom = atom<OrderBookLevel[]>((get) => {
     .slice(0, 8) // Top 8 levels
 
   // Calculate cumulative total from lowest price upwards
-  return asks.map((ask, index) => {
+  const levelsWithTotal = asks.map((ask, index) => {
     // Sum from current index to the end (lowest prices)
     const cumulativeTotal = asks.slice(index).reduce((sum, a) => sum + Number(a.size), 0)
     const isNewOrder = !prevOrderBook?.asks.has(ask.price)
@@ -75,8 +84,18 @@ export const asksArrayAtom = atom<OrderBookLevel[]>((get) => {
       total: cumulativeTotal.toString(),
       isNewOrder: isNewOrder ?? false,
       sizeChanged,
+      totalValue: cumulativeTotal,
     }
   })
+
+  // Calculate max total and add percentage
+  // For asks: first row has the highest total (sum of all), last row has the lowest
+  const maxTotal = levelsWithTotal.length > 0 ? levelsWithTotal[0].totalValue : 1
+
+  return levelsWithTotal.map(({ totalValue, ...level }) => ({
+    ...level,
+    percentage: maxTotal > 0 ? (totalValue / maxTotal) * 100 : 0,
+  }))
 })
 
 // Split atoms for individual bid/ask levels
