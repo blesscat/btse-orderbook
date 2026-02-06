@@ -26,11 +26,21 @@ export const bidsArrayAtom = atom<OrderBookLevel[]>((get) => {
   return bids.map((bid) => {
     cumulativeTotal += Number(bid.size)
     const isNewOrder = !prevOrderBook?.bids.has(bid.price)
+
+    // Compare size with previous order book to determine if size increased or decreased
+    let sizeChanged: 'increase' | 'decrease' = 'increase'
+    if (prevOrderBook?.bids.has(bid.price)) {
+      const prevSize = Number(prevOrderBook.bids.get(bid.price))
+      const currentSize = Number(bid.size)
+      sizeChanged = currentSize > prevSize ? 'increase' : 'decrease'
+    }
+
     return {
       price: bid.price,
       size: bid.size,
       total: cumulativeTotal.toString(),
       isNewOrder: isNewOrder ?? false,
+      sizeChanged,
     }
   })
 })
@@ -50,11 +60,21 @@ export const asksArrayAtom = atom<OrderBookLevel[]>((get) => {
     // Sum from current index to the end (lowest prices)
     const cumulativeTotal = asks.slice(index).reduce((sum, a) => sum + Number(a.size), 0)
     const isNewOrder = !prevOrderBook?.asks.has(ask.price)
+
+    // Compare size with previous order book to determine if size increased or decreased
+    let sizeChanged: 'increase' | 'decrease' = 'increase'
+    if (prevOrderBook?.asks.has(ask.price)) {
+      const prevSize = Number(prevOrderBook.asks.get(ask.price))
+      const currentSize = Number(ask.size)
+      sizeChanged = currentSize > prevSize ? 'increase' : 'decrease'
+    }
+
     return {
       price: ask.price,
       size: ask.size,
       total: cumulativeTotal.toString(),
       isNewOrder: isNewOrder ?? false,
+      sizeChanged,
     }
   })
 })

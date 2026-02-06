@@ -4,6 +4,7 @@ export interface OrderBookLevel {
   size: string
   total: string
   isNewOrder: boolean
+  sizeChanged: 'increase' | 'decrease'
 }
 
 // Order book level from API (tuple format)
