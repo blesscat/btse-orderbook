@@ -7,9 +7,16 @@
   --color-bg-primary: #131B29;
   --color-text-primary: #F0F4F8;
   --color-text-secondary: #8698aa;
-  --color-buy-quote: #00b15d;
-  --color-sell-quote: #FF5B5A;
+  --color-green-quote: #00b15d;
+  --color-red-quote: #FF5B5A;
   --color-row-hover: #1E3059;
+}
+
+:root {
+  /* Background colors with transparency for buy/sell quotes */
+  --color-green-12: rgba(16, 186, 104, 0.12);
+  --color-red-12: rgba(255, 90, 90, 0.12);
+  --color-normal-12: rgba(134, 152, 170, 0.12);
 }
 
 * {

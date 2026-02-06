@@ -15,6 +15,7 @@ export type TradeFill = z.infer<typeof tradeFillSchema>
 // For UI display, we track the latest trade
 export interface LastPriceData {
   price: number
+  priceChanged: 'increase' | 'decrease' | 'normal'
   size: number
   side: 'BUY' | 'SELL'
   symbol: string

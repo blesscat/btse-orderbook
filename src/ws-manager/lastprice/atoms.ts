@@ -30,6 +30,9 @@ export const errorAtom = atom<string | null>(null)
 // Base atom for last price data
 export const lastPriceAtom = atom<LastPriceData | null>(null)
 
+// Atom to track previous price for comparison
+export const prevPriceAtom = atom<number | null>(null)
+
 /**
  * Connect WebSocket if not already connected
  */

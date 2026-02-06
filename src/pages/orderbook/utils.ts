@@ -1,4 +1,5 @@
-export const formatNumber = (num: string | number, fractionDigits?: number): string => {
+export const formatNumber = (num: string | number | undefined, fractionDigits?: number): string => {
+  if (!num) return ''
   const n = Number(num)
 
   if (fractionDigits !== undefined) {

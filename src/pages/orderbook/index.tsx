@@ -21,20 +21,20 @@ export default function OrderBookPage() {
     <div className="bg-bg-primary min-h-screen p-6">
       <h1 className="text-text-primary mb-6 font-mono text-3xl font-bold">Order Book</h1>
 
-      <div className="space-y-4">
+      <div>
         <div className="text-text-secondary grid grid-cols-[1fr_1fr_1.5fr] text-sm">
           <span className="text-nowrap">Price(USD)</span>
           <span className="text-right">Size</span>
           <span className="text-right">Total</span>
         </div>
 
-        <div>
+        <div className="mt-3">
           {asksAtoms.map((asksAtom) => (
             <OrderRow key={`${asksAtom}`} rowAtom={asksAtom} type="ask" />
           ))}
         </div>
 
-        <LastPrice />
+        <LastPrice className="my-1" />
 
         <div>
           {bidsAtoms.map((bidsAtom) => (
