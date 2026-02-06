@@ -1,7 +1,8 @@
 import { atom } from 'jotai'
-import type { OrderBookMessage, OrderBook } from './types'
 import { connectionStatusAtom, errorAtom, orderBookAtom } from './atoms'
 import { WS_URL, UPDATE_TOPIC } from './constants'
+import { resetDataTimeout, clearAllTimers, initializeOrderBookFromSnapshot, applyIncrementalUpdate } from './helpers'
+import type { OrderBookMessage } from './types'
 
 export * from './atoms'
 export type * from './types'
@@ -9,39 +10,7 @@ export type * from './types'
 // WebSocket instance (stored outside of atoms to persist)
 let ws: WebSocket | null = null
 let reconnectTimer: number | null = null
-let pingTimer: number | null = null
-
-// Helper function to apply order book updates
-function applyOrderBookUpdate(currentBook: OrderBook, message: OrderBookMessage): OrderBook {
-  const newBids = new Map(currentBook.bids)
-  const newAsks = new Map(currentBook.asks)
-
-  // Update bids
-  for (const level of message.bids) {
-    if (parseFloat(level.size) === 0) {
-      newBids.delete(level.price)
-    } else {
-      newBids.set(level.price, level.size)
-    }
-  }
-
-  // Update asks
-  for (const level of message.asks) {
-    if (parseFloat(level.size) === 0) {
-      newAsks.delete(level.price)
-    } else {
-      newAsks.set(level.price, level.size)
-    }
-  }
-
-  return {
-    symbol: message.symbol,
-    bids: newBids,
-    asks: newAsks,
-    lastSeqNum: message.seqNum,
-    timestamp: message.timestamp,
-  }
-}
+let dataTimeoutTimer: number | null = null
 
 // Action atom to connect WebSocket
 export const connectWSAtom = atom(null, (get, set) => {
@@ -56,6 +25,14 @@ export const connectWSAtom = atom(null, (get, set) => {
   try {
     ws = new WebSocket(WS_URL)
 
+    // Create refs object for helper functions
+    const refs = {
+      ws,
+      reconnectTimer,
+      dataTimeoutTimer,
+      connectWSAtom,
+    }
+
     ws.onopen = () => {
       console.log('WebSocket connected')
       set(connectionStatusAtom, 'connected')
@@ -67,77 +44,37 @@ export const connectWSAtom = atom(null, (get, set) => {
         args: [UPDATE_TOPIC],
       }
       ws?.send(JSON.stringify(subscribeMessage))
+      console.log('Subscription sent:', subscribeMessage)
 
-      // Set up ping to keep connection alive
-      if (pingTimer) clearInterval(pingTimer)
-      pingTimer = setInterval(() => {
-        if (ws?.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ op: 'ping' }))
-        }
-      }, 30000) // Ping every 30 seconds
+      // Start data timeout timer after subscription
+      resetDataTimeout(refs, set)
     }
 
     ws.onmessage = (event) => {
+      // Reset timeout on any message received
+      resetDataTimeout(refs, set)
+
       try {
         const data = JSON.parse(event.data)
 
-        // Handle pong response
-        if (data.op === 'pong') {
-          return
-        }
-
-        // Handle subscription confirmation
+        // Log subscription confirmation
         if (data.event === 'subscribe') {
           console.log('Subscription confirmed:', data)
           return
         }
 
-        // Handle order book data
-        if (data.topic === UPDATE_TOPIC && data.data) {
-          const message: OrderBookMessage = data.data
+        // Process order book data
+        if (data.topic !== UPDATE_TOPIC || !data.data) {
+          return
+        }
 
-          const currentOrderBook = get(orderBookAtom)
+        const message: OrderBookMessage = data.data
+        const currentOrderBook = get(orderBookAtom)
 
-          if (message.type === 'snapshot') {
-            // Initialize order book with snapshot
-            const newBook: OrderBook = {
-              symbol: message.symbol,
-              bids: new Map(message.bids.map((level) => [level.price, level.size])),
-              asks: new Map(message.asks.map((level) => [level.price, level.size])),
-              lastSeqNum: message.seqNum,
-              timestamp: message.timestamp,
-            }
-            set(orderBookAtom, newBook)
-            console.log('Order book snapshot received')
-          } else if (message.type === 'delta') {
-            // Check sequence number continuity
-            if (currentOrderBook && message.prevSeqNum !== currentOrderBook.lastSeqNum) {
-              console.warn(
-                `Sequence number mismatch! Expected ${currentOrderBook.lastSeqNum}, got ${message.prevSeqNum}. Re-subscribing...`
-              )
-              // Re-subscribe to get a fresh snapshot
-              const resubscribeMessage = {
-                op: 'unsubscribe',
-                args: [UPDATE_TOPIC],
-              }
-              ws?.send(JSON.stringify(resubscribeMessage))
-
-              setTimeout(() => {
-                const subscribeMessage = {
-                  op: 'subscribe',
-                  args: [UPDATE_TOPIC],
-                }
-                ws?.send(JSON.stringify(subscribeMessage))
-              }, 100)
-              return
-            }
-
-            // Apply delta update
-            if (currentOrderBook) {
-              const updatedBook = applyOrderBookUpdate(currentOrderBook, message)
-              set(orderBookAtom, updatedBook)
-            }
-          }
+        if (message.type === 'snapshot') {
+          initializeOrderBookFromSnapshot(message, set)
+        } else if (message.type === 'delta') {
+          applyIncrementalUpdate(message, currentOrderBook, ws, set)
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error)
@@ -155,9 +92,10 @@ export const connectWSAtom = atom(null, (get, set) => {
       console.log('WebSocket disconnected')
       set(connectionStatusAtom, 'disconnected')
 
-      if (pingTimer) {
-        clearInterval(pingTimer)
-        pingTimer = null
+      // Clear data timeout timer
+      if (dataTimeoutTimer) {
+        clearTimeout(dataTimeoutTimer)
+        dataTimeoutTimer = null
       }
 
       // Auto-reconnect after 3 seconds
@@ -175,16 +113,15 @@ export const connectWSAtom = atom(null, (get, set) => {
 })
 
 // Action atom to disconnect WebSocket
-export const disconnectWSAtom = atom(null, (get, set) => {
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
+export const disconnectWSAtom = atom(null, (_get, set) => {
+  const refs = {
+    ws,
+    reconnectTimer,
+    dataTimeoutTimer,
+    connectWSAtom,
   }
 
-  if (pingTimer) {
-    clearInterval(pingTimer)
-    pingTimer = null
-  }
+  clearAllTimers(refs)
 
   if (ws) {
     ws.close()
