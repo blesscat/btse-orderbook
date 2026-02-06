@@ -101,32 +101,3 @@ export const asksArrayAtom = atom<OrderBookLevel[]>((get) => {
 // Split atoms for individual bid/ask levels
 export const splitBidsAtom = splitAtom(bidsArrayAtom)
 export const splitAsksAtom = splitAtom(asksArrayAtom)
-
-// Derived atoms for best bid/ask
-export const bestBidAtom = atom<OrderBookLevel | null>((get) => {
-  const bids = get(bidsArrayAtom)
-  return bids[0] || null
-})
-
-export const bestAskAtom = atom<OrderBookLevel | null>((get) => {
-  const asks = get(asksArrayAtom)
-  return asks[0] || null
-})
-
-// Derived atom for spread
-export const spreadAtom = atom<{ absolute: string; percentage: string } | null>((get) => {
-  const bestBid = get(bestBidAtom)
-  const bestAsk = get(bestAskAtom)
-
-  if (!bestBid || !bestAsk) return null
-
-  const bidPrice = Number(bestBid.price)
-  const askPrice = Number(bestAsk.price)
-  const spread = askPrice - bidPrice
-  const spreadPercent = (spread / bidPrice) * 100
-
-  return {
-    absolute: spread.toFixed(2),
-    percentage: spreadPercent.toFixed(4),
-  }
-})
