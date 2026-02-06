@@ -21,7 +21,10 @@
     "preview": {
       "name": "preview",
       "command": "pnpm preview",
-      "runAtStart": true
+      "runAtStart": true,
+      "preview": {
+        "port": 4173
+      }
     }
   }
 }
