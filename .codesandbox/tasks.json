@@ -3,13 +3,16 @@
     {
       "name": "Install Dependencies",
       "command": "pnpm install"
+    },
+    {
+      "name": "Build Project",
+      "command": "pnpm build"
     }
   ],
   "tasks": {
     "dev": {
       "name": "dev",
-      "command": "pnpm dev",
-      "runAtStart": true
+      "command": "pnpm dev"
     },
     "build": {
       "name": "build",
@@ -17,7 +20,8 @@
     },
     "preview": {
       "name": "preview",
-      "command": "pnpm preview"
+      "command": "pnpm preview",
+      "runAtStart": true
     }
   }
 }
