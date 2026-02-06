@@ -1,7 +1,11 @@
+// Order book level for UI (object format)
 export interface OrderBookLevel {
   price: string
   size: string
 }
+
+// Order book level from API (tuple format)
+export type OrderBookLevelTuple = [string, string]
 
 export interface OrderBookSnapshot {
   type: 'snapshot'
@@ -9,8 +13,8 @@ export interface OrderBookSnapshot {
   timestamp: number
   seqNum: number
   prevSeqNum: number
-  bids: OrderBookLevel[]
-  asks: OrderBookLevel[]
+  bids: OrderBookLevelTuple[]
+  asks: OrderBookLevelTuple[]
 }
 
 export interface OrderBookDelta {
@@ -19,8 +23,8 @@ export interface OrderBookDelta {
   timestamp: number
   seqNum: number
   prevSeqNum: number
-  bids: OrderBookLevel[]
-  asks: OrderBookLevel[]
+  bids: OrderBookLevelTuple[]
+  asks: OrderBookLevelTuple[]
 }
 
 export type OrderBookMessage = OrderBookSnapshot | OrderBookDelta

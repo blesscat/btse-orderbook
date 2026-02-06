@@ -1,6 +1,7 @@
 import type { OrderBookMessage, OrderBook } from './types'
-import { connectionStatusAtom, orderBookAtom } from './atoms'
-import { DATA_TIMEOUT_MS, UPDATE_TOPIC } from './constants'
+import { connectionStatusAtom, orderBookAtom, errorAtom } from './atoms'
+import { DATA_TIMEOUT_MS } from './constants'
+import { wsMessageSchema, parseTopic, type TopicAction } from './schemas'
 
 // WebSocket and timer instance references
 export interface WSRefs {
@@ -18,21 +19,21 @@ export function applyOrderBookUpdate(currentBook: OrderBook, message: OrderBookM
   const newBids = new Map(currentBook.bids)
   const newAsks = new Map(currentBook.asks)
 
-  // Update bids
-  for (const level of message.bids) {
-    if (parseFloat(level.size) === 0) {
-      newBids.delete(level.price)
+  // Update bids - API format: [price, size]
+  for (const [price, size] of message.bids) {
+    if (parseFloat(size) === 0) {
+      newBids.delete(price)
     } else {
-      newBids.set(level.price, level.size)
+      newBids.set(price, size)
     }
   }
 
-  // Update asks
-  for (const level of message.asks) {
-    if (parseFloat(level.size) === 0) {
-      newAsks.delete(level.price)
+  // Update asks - API format: [price, size]
+  for (const [price, size] of message.asks) {
+    if (parseFloat(size) === 0) {
+      newAsks.delete(price)
     } else {
-      newAsks.set(level.price, level.size)
+      newAsks.set(price, size)
     }
   }
 
@@ -101,8 +102,8 @@ export function clearAllTimers(refs: WSRefs) {
 export function initializeOrderBookFromSnapshot(message: OrderBookMessage, set: any) {
   const newBook: OrderBook = {
     symbol: message.symbol,
-    bids: new Map(message.bids.map((level) => [level.price, level.size])),
-    asks: new Map(message.asks.map((level) => [level.price, level.size])),
+    bids: new Map(message.bids), // Already in [price, size] format
+    asks: new Map(message.asks), // Already in [price, size] format
     lastSeqNum: message.seqNum,
     timestamp: message.timestamp,
   }
@@ -116,6 +117,7 @@ export function initializeOrderBookFromSnapshot(message: OrderBookMessage, set: 
 export function applyIncrementalUpdate(
   message: OrderBookMessage,
   currentOrderBook: OrderBook | null,
+  topic: string,
   ws: WebSocket | null,
   set: any
 ) {
@@ -127,14 +129,14 @@ export function applyIncrementalUpdate(
     // Re-subscribe to get a fresh snapshot
     const resubscribeMessage = {
       op: 'unsubscribe',
-      args: [UPDATE_TOPIC],
+      args: [topic],
     }
     ws?.send(JSON.stringify(resubscribeMessage))
 
     setTimeout(() => {
       const subscribeMessage = {
         op: 'subscribe',
-        args: [UPDATE_TOPIC],
+        args: [topic],
       }
       ws?.send(JSON.stringify(subscribeMessage))
       console.log('Re-subscription sent after sequence mismatch')
@@ -146,5 +148,73 @@ export function applyIncrementalUpdate(
   if (currentOrderBook) {
     const updatedBook = applyOrderBookUpdate(currentOrderBook, message)
     set(orderBookAtom, updatedBook)
+  }
+}
+
+/**
+ * Process subscription confirmation event
+ */
+export function processSubscriptionEvent(data: any) {
+  console.log('Subscription confirmed:', data)
+}
+
+/**
+ * Process update action based on message type
+ */
+function processUpdateAction(
+  symbol: string,
+  message: OrderBookMessage,
+  topic: string,
+  ws: WebSocket | null,
+  get: any,
+  set: any
+) {
+  console.log(`Processing update for symbol: ${symbol}`)
+
+  const currentOrderBook = get(orderBookAtom)
+
+  switch (message.type) {
+    case 'snapshot':
+      initializeOrderBookFromSnapshot(message, set)
+      break
+
+    case 'delta':
+      applyIncrementalUpdate(message, currentOrderBook, topic, ws, set)
+      break
+
+    default:
+      console.warn('Unknown message type:', message)
+  }
+}
+
+/**
+ * Process WebSocket data message based on topic action
+ */
+export function processDataMessage(data: any, ws: WebSocket | null, get: any, set: any) {
+  // Parse and validate topic
+  const parsed = parseTopic(data.topic)
+  if (!parsed) {
+    console.warn('Invalid topic format:', data.topic)
+    return
+  }
+
+  const { action, symbol } = parsed
+
+  // Route to handler based on action
+  switch (action as TopicAction) {
+    case 'update':
+      processUpdateAction(symbol, data.data, data.topic, ws, get, set)
+      break
+
+    case 'subscribe':
+      console.log(`Subscription event for ${symbol}`)
+      break
+
+    case 'unsubscribe':
+      console.log(`Unsubscription event for ${symbol}`)
+      break
+
+    default:
+      console.warn('Unknown topic action:', action)
   }
 }

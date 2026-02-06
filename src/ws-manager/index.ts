@@ -1,8 +1,8 @@
 import { atom } from 'jotai'
 import { connectionStatusAtom, errorAtom, orderBookAtom } from './atoms'
 import { WS_URL, UPDATE_TOPIC } from './constants'
-import { resetDataTimeout, clearAllTimers, initializeOrderBookFromSnapshot, applyIncrementalUpdate } from './helpers'
-import type { OrderBookMessage } from './types'
+import { wsMessageSchema } from './schemas'
+import { resetDataTimeout, clearAllTimers, processSubscriptionEvent, processDataMessage } from './helpers'
 
 export * from './atoms'
 export type * from './types'
@@ -55,27 +55,26 @@ export const connectWSAtom = atom(null, (get, set) => {
       resetDataTimeout(refs, set)
 
       try {
-        const data = JSON.parse(event.data)
+        const rawData = JSON.parse(event.data)
 
-        // Log subscription confirmation
-        if (data.event === 'subscribe') {
-          console.log('Subscription confirmed:', data)
+        // Validate message with zod
+        const validationResult = wsMessageSchema.safeParse(rawData)
+
+        if (!validationResult.success) {
+          console.log('???????????', rawData)
+          console.warn('Message validation failed:', validationResult.error.issues)
           return
         }
 
-        // Process order book data
-        if (data.topic !== UPDATE_TOPIC || !data.data) {
-          return
-        }
+        const data = validationResult.data
 
-        const message: OrderBookMessage = data.data
-        const currentOrderBook = get(orderBookAtom)
+        // Handle subscription event
+        if ('event' in data && data.event === 'subscribe') return processSubscriptionEvent(data)
 
-        if (message.type === 'snapshot') {
-          initializeOrderBookFromSnapshot(message, set)
-        } else if (message.type === 'delta') {
-          applyIncrementalUpdate(message, currentOrderBook, ws, set)
-        }
+        // Handle data message
+        if ('topic' in data && 'data' in data) return processDataMessage(data, refs.ws, get, set)
+
+        console.warn('Unknown message format:', data)
       } catch (error) {
         console.error('Error parsing WebSocket message:', error)
         set(errorAtom, 'Failed to parse message')
