@@ -18,10 +18,15 @@ export default function OrderBookPage() {
   }, [subscribe, unsubscribe])
 
   return (
-    <div className="bg-bg-primary min-h-screen p-6">
-      <h1 className="text-text-primary mb-6 font-mono text-3xl font-bold">Order Book</h1>
+    <div className="bg-bg-primary min-h-screen pt-3">
+      <h1
+        className="text-text-primary mb-3 border-b px-6 font-mono text-xl font-bold"
+        style={{ borderColor: 'var(--color-normal-12)' }}
+      >
+        Order Book
+      </h1>
 
-      <div>
+      <div className="px-6">
         <div className="text-text-secondary grid grid-cols-[1fr_1fr_1.5fr] text-sm">
           <span className="text-nowrap">Price(USD)</span>
           <span className="text-right">Size</span>
