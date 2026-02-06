@@ -4,12 +4,14 @@ import Orderbook from './pages/orderbook'
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/orderbook" element={<Orderbook />} />
-      </Routes>
-    </BrowserRouter>
+    <div className="font-mono">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/orderbook" element={<Orderbook />} />
+        </Routes>
+      </BrowserRouter>
+    </div>
   )
 }
 

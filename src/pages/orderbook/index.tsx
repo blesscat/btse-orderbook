@@ -17,23 +17,29 @@ export default function OrderBookPage() {
   }, [subscribe, unsubscribe])
 
   return (
-    <div className="min-h-screen">
-      <div className="grid grid-cols-[1fr_1fr_2fr]">
-        <span> Price (USD) </span>
-        <span className="text-right"> Size </span>
-        <span className="text-right">Total </span>
-      </div>
+    <div className="min-h-screen bg-bg-primary p-6">
+      <h1 className="mb-6 font-mono text-3xl font-bold text-text-primary">Order Book</h1>
 
-      <div>
-        {asksAtoms.map((asksAtom) => (
-          <OrderRow key={`${asksAtom}`} rowAtom={asksAtom} />
-        ))}
-      </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-[1fr_1fr_2fr] gap-4 px-4 py-2 text-sm text-text-secondary">
+          <span>Price (USD)</span>
+          <span className="text-right">Size</span>
+          <span className="text-right">Total</span>
+        </div>
 
-      <div className="mt-[20px]">
-        {bidsAtoms.map((bidsAtom) => (
-          <OrderRow key={`${bidsAtom}`} rowAtom={bidsAtom} />
-        ))}
+        <div className="space-y-1">
+          {asksAtoms.map((asksAtom) => (
+            <OrderRow key={`${asksAtom}`} rowAtom={asksAtom} type="ask" />
+          ))}
+        </div>
+
+        <div className="my-4 border-t border-[#1e2329]" />
+
+        <div className="space-y-1">
+          {bidsAtoms.map((bidsAtom) => (
+            <OrderRow key={`${bidsAtom}`} rowAtom={bidsAtom} type="bid" />
+          ))}
+        </div>
       </div>
     </div>
   )
