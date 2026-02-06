@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { useAtomValue, useSetAtom } from 'jotai'
+import { ArrowUpIcon, ArrowDownIcon } from '@radix-ui/react-icons'
 import { subscribeAtom, unsubscribeAtom, lastPriceAtom } from '@/ws-manager/lastprice'
 import { TRADE_BRCPFC } from '@/constants'
 import { formatNumber } from './utils'
@@ -30,9 +31,25 @@ export default function LastPrice({ className }: { className?: string }) {
     }
   }, [lastPrice])
 
+  const Arrow = useMemo(() => {
+    switch (lastPrice?.priceChanged) {
+      case 'increase':
+        return ArrowUpIcon
+      case 'decrease':
+        return ArrowDownIcon
+      default:
+        return ({ className }: { className?: string }) => <div className={className} />
+    }
+  }, [lastPrice?.priceChanged])
+
   return (
-    <div className={twMerge('text-center', className)} style={{ color: colors?.color, background: colors?.bg }}>
-      {formatNumber(lastPrice?.price, 1)}
+    <div
+      className={twMerge('flex items-center justify-center gap-2 py-1', className)}
+      style={{ color: colors?.color, background: colors?.bg }}
+    >
+      <span>{formatNumber(lastPrice?.price, 1)}</span>
+
+      <Arrow className="h-4 w-4" />
     </div>
   )
 }
