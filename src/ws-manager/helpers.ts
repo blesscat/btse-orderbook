@@ -1,7 +1,8 @@
-import type { OrderBookMessage, OrderBook } from './types'
-import { connectionStatusAtom, orderBookAtom, errorAtom } from './atoms'
+import type { OrderBookMessage, OrderBook } from '../atoms/types'
+import { orderBookAtom } from '../atoms'
+import { connectionStatusAtom } from './atoms'
 import { DATA_TIMEOUT_MS } from './constants'
-import { wsMessageSchema, parseTopic, type TopicAction } from './schemas'
+import { parseTopic, type TopicAction } from './schemas'
 
 // WebSocket and timer instance references
 export interface WSRefs {
@@ -21,7 +22,7 @@ export function applyOrderBookUpdate(currentBook: OrderBook, message: OrderBookM
 
   // Update bids - API format: [price, size]
   for (const [price, size] of message.bids) {
-    if (parseFloat(size) === 0) {
+    if (Number(size) === 0) {
       newBids.delete(price)
     } else {
       newBids.set(price, size)
@@ -30,7 +31,7 @@ export function applyOrderBookUpdate(currentBook: OrderBook, message: OrderBookM
 
   // Update asks - API format: [price, size]
   for (const [price, size] of message.asks) {
-    if (parseFloat(size) === 0) {
+    if (Number(size) === 0) {
       newAsks.delete(price)
     } else {
       newAsks.set(price, size)
@@ -167,15 +168,13 @@ export function processSubscriptionEvent(data: any) {
  * Process update action based on message type
  */
 function processUpdateAction(
-  symbol: string,
+  _symbol: string,
   message: OrderBookMessage,
   topic: string,
   ws: WebSocket | null,
   get: any,
   set: any
 ) {
-  console.log(`Processing update for symbol: ${symbol}`)
-
   const currentOrderBook = get(orderBookAtom)
 
   switch (message.type) {

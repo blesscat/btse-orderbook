@@ -36,11 +36,3 @@ export interface OrderBook {
   lastSeqNum: number
   timestamp: number
 }
-
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
-
-export interface WSManagerState {
-  status: ConnectionStatus
-  orderBook: OrderBook | null
-  error: string | null
-}
